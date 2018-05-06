@@ -1,12 +1,17 @@
 package com.chrisluttazi.skus
 
 import com.chrisluttazi.skus.model.{ Sku, SkuDifferences }
+import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.DataFrame
 
 import scala.util.Try
 
-class SuggestionsEngine {
+object Holder extends Serializable {
+  @transient lazy val log = Logger.getLogger(getClass.getName)
+}
+
+class SuggestionsEngine extends Serializable {
 
   /**
    * Creates a features array, this will fail in case the string is not formatted as in the file
@@ -16,13 +21,13 @@ class SuggestionsEngine {
    */
   def convertToArray(row: String): Array[Int] = {
     val rowArray: Array[String] = row.split(",")
-    val array: Array[Int] = new Array[Int](row.length)
-    rowArray.foreach(a => {
+    val array: Array[Int] = new Array[Int](rowArray.length)
+    for ((a, i) <- rowArray.view.zipWithIndex) {
       val b: Array[String] = a.split("-")
       val index: Try[Int] = Try(b(1).charAt(0).toInt - 'a')
       val value: Try[Int] = Try(b(2).toInt)
       if (index.isSuccess && value.isSuccess) array(index.get) = value.get
-    })
+    }
     array
   }
 
@@ -43,7 +48,7 @@ class SuggestionsEngine {
   }
 
   /**
-   * Returns an int based on the differences
+   * Returns an int based on the differences, the lower the breaker, the better
    *
    * @param sku1 : SE
    * @param sku2 : SE
@@ -52,24 +57,24 @@ class SuggestionsEngine {
   def compare(sku1: Sku, sku2: Sku): SkuDifferences = {
     if (sku1.attributes.length >= sku2.attributes.length) {
       val diff: Array[Int] = calculateDifference(sku1.attributes, sku2.attributes)
-      var coef: Int = Math.pow(100, sku1.attributes.length).toInt
-      var sum: Int = 0
+      var coef: BigInt = Math.pow(100, sku1.attributes.length).toInt
+      var breaker: BigInt = 0
       for (n <- diff) {
-        sum += coef * n
+        breaker += coef * n
         coef /= 100
       }
-      SkuDifferences(sku2.sku, diff.sum, sum)
+      SkuDifferences(sku2, diff.sum, breaker)
     } else compare(sku2, sku1)
 
   }
 
   /**
-   * Creates an [[RDD]] of type [[Sku]] based on a [[Dataset]]
+   * Creates an [[RDD]] of type [[Sku]] based on a [[DataFrame]]
    *
    * @param ds : input dataset
    * @return
    */
-  def parseSku(ds: Dataset[String]): RDD[Sku] =
+  def parseSku(ds: DataFrame): RDD[Sku] =
     ds.rdd.map(row =>
       Sku(row(1).toString, SuggestionsEngine.convertToArray(row(0).toString)))
 

@@ -4,4 +4,4 @@ package com.chrisluttazi.skus.model
 case class Sku(sku: String, attributes: Array[Int])
 
 // Represents the difference between two skus
-case class SkuDifferences(sku: String, difference: Int, breaker: Int)
+case class SkuDifferences(sku: Sku, difference: Int, breaker: BigInt)

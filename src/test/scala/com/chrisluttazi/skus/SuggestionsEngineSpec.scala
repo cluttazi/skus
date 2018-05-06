@@ -2,12 +2,14 @@ package com.chrisluttazi.skus
 
 import com.chrisluttazi.skus.model.{ Sku, SkuDifferences }
 import com.chrisluttazi.skus.spark.Spark
+import org.apache.log4j.LogManager
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
 class SuggestionsEngineSpec extends WordSpec with Matchers with ScalaFutures {
+  val log = LogManager.getRootLogger
 
   "SuggestionsEngine" should {
 
@@ -50,20 +52,26 @@ class SuggestionsEngineSpec extends WordSpec with Matchers with ScalaFutures {
 
       val ds: DataFrame = Spark.session.read.json(path)
 
-      System.out.println(s"${ds.printSchema}")
-
-      //the attribute last letter is the weight
-      //a should be highest priority, while j the lowest
-      //get the last letter of the att and then calculate base on a function
+      log.info(s"${ds.printSchema}")
 
       //aggregate the order
-      val rdd: RDD[Sku] =
-        ds.rdd.map(row =>
-          Sku(row(1).toString, SuggestionsEngine.convertToArray(row(0).toString)))
+      val rdd: RDD[Sku] = SuggestionsEngine.parseSku(ds)
+      // take one and find top matches
+      val sku: Sku = rdd.take(1)(0)
       //calculate the difference
-      rdd
-      //grab 10 best articles
+      val rddDifferences: RDD[SkuDifferences] = SuggestionsEngine.createDifferencesRDD(sku, rdd)
+      log.info(s"${rddDifferences.take(10)}")
+      //grab best skus
+      val recommendations: Array[SkuDifferences] = SuggestionsEngine.getBestRecommendations(sku, rdd, 15)
 
+      def printInt(i: Int): String = s" $i "
+
+      log.info(s"Comparison sku ${sku.sku} attributes " +
+        s"${sku.attributes.foldLeft("") { (acc, i) => acc + s"${i.toString} " }}}")
+      recommendations.foreach(s => {
+        log.info(s"sku ${s.sku.sku} diff ${s.difference} breaker ${s.breaker}")
+        log.info(s"attributes ${s.sku.attributes.foldLeft("") { (acc, i) => acc + s"${i.toString} " }}")
+      })
     }
   }
 }
