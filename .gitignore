@@ -1,2 +1,7 @@
 *.class
 *.log
+target
+input.json
+*.iml
+.idea/
+spark-warehouse
