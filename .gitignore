@@ -3,5 +3,5 @@
 target
 input.json
 *.iml
-.idea/
+.idea
 spark-warehouse

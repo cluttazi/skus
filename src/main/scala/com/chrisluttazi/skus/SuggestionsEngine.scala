@@ -1,17 +1,12 @@
 package com.chrisluttazi.skus
 
-import com.chrisluttazi.skus.model.{ Sku, SkuDifferences }
-import org.apache.log4j.Logger
+import com.chrisluttazi.skus.model.{ Sku, SkuDifferences, SuggestionsEngineT }
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 
 import scala.util.Try
 
-object Holder extends Serializable {
-  @transient lazy val log = Logger.getLogger(getClass.getName)
-}
-
-class SuggestionsEngine extends Serializable {
+class SuggestionsEngine extends Serializable with SuggestionsEngineT {
 
   /**
    * Creates a features array, this will fail in case the string is not formatted as in the file
@@ -19,7 +14,7 @@ class SuggestionsEngine extends Serializable {
    * @param row : a row, for example: [att-a-7,att-b-3,att-c-10,att-d-10,att-e-15,att-f-11,att-g-2,att-h-7,att-i-5,att-j-14]
    * @return
    */
-  def convertToArray(row: String): Array[Int] = {
+  private def convertToArray(row: String): Array[Int] = {
     val rowArray: Array[String] = row.split(",")
     val array: Array[Int] = new Array[Int](rowArray.length)
     for ((a, i) <- rowArray.view.zipWithIndex) {
@@ -38,7 +33,7 @@ class SuggestionsEngine extends Serializable {
    * @param s2 : An attributes array
    * @return
    */
-  def calculateDifference(s1: Array[Int], s2: Array[Int]): Array[Int] = {
+  private def calculateDifference(s1: Array[Int], s2: Array[Int]): Array[Int] = {
     if (s1.length >= s2.length) {
       val length: Int = s1.length
       val array: Array[Int] = new Array[Int](length)
@@ -47,14 +42,7 @@ class SuggestionsEngine extends Serializable {
     } else calculateDifference(s2, s1)
   }
 
-  /**
-   * Returns an int based on the differences, the lower the breaker, the better
-   *
-   * @param sku1 : SE
-   * @param sku2 : SE
-   * @return
-   */
-  def compare(sku1: Sku, sku2: Sku): SkuDifferences = {
+  override def compare(sku1: Sku, sku2: Sku): SkuDifferences = {
     if (sku1.attributes.length >= sku2.attributes.length) {
       val diff: Array[Int] = calculateDifference(sku1.attributes, sku2.attributes)
       var coef: BigInt = Math.pow(100, sku1.attributes.length).toInt
@@ -68,37 +56,16 @@ class SuggestionsEngine extends Serializable {
 
   }
 
-  /**
-   * Creates an [[RDD]] of type [[Sku]] based on a [[DataFrame]]
-   *
-   * @param ds : input dataset
-   * @return
-   */
-  def parseSku(ds: DataFrame): RDD[Sku] =
+  override def parseSku(ds: DataFrame): RDD[Sku] =
     ds.rdd.map(row =>
-      Sku(row(1).toString, SuggestionsEngine.convertToArray(row(0).toString)))
+      Sku(row(1).toString, convertToArray(row(0).toString)))
 
-  /**
-   * Creates [[RDD]] of type [[SkuDifferences]] based on one sku to pivot
-   *
-   * @param sku : Sku used to Pivot
-   * @param rdd : Rdd with other skus to compare
-   * @return
-   */
-  def createDifferencesRDD(sku: Sku, rdd: RDD[Sku]): RDD[SkuDifferences] =
+  override def createDifferencesRDD(sku: Sku, rdd: RDD[Sku]): RDD[SkuDifferences] =
     rdd
       .map(compare(sku, _))
       .sortBy(sd => (sd.difference, sd.breaker))
 
-  /**
-   * Gets the best N recommendations
-   *
-   * @param sku : Sku used to Pivot
-   * @param rdd : Rdd with other skus to compare
-   * @param n   : Number of recommendations
-   * @return
-   */
-  def getBestRecommendations(sku: Sku, rdd: RDD[Sku], n: Int): Array[SkuDifferences] =
+  override def getBestRecommendations(sku: Sku, rdd: RDD[Sku], n: Int): Array[SkuDifferences] =
     createDifferencesRDD(sku, rdd).take(n)
 
 }
