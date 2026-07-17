@@ -1,7 +1,26 @@
+# Build output
+target/
+project/target/
+project/project/
 *.class
-*.log
-target
-input.json
+
+# Spark / Hive local artifacts
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Local datasets (the test fixture lives in src/test/resources)
+/input.json
+
+# IDE files
+.idea/
 *.iml
-.idea
-spark-warehouse
+.bsp/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
