@@ -2,14 +2,14 @@ package com.chrisluttazi.skus
 
 import com.chrisluttazi.skus.model.{ Sku, SkuDifferences }
 import com.chrisluttazi.skus.spark.Spark
-import org.apache.log4j.LogManager
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.{ Logger, LoggerFactory }
 
-class SuggestionsEngineSpec extends WordSpec with Matchers with ScalaFutures {
-  val log = LogManager.getRootLogger
+class SuggestionsEngineSpec extends AnyWordSpec with Matchers {
+  val log: Logger = LoggerFactory.getLogger(getClass)
 
   "SuggestionsEngine" should {
 
@@ -52,25 +52,24 @@ class SuggestionsEngineSpec extends WordSpec with Matchers with ScalaFutures {
 
       val ds: DataFrame = Spark.session.read.json(path)
 
-      log.info(s"${ds.printSchema}")
-
       //aggregate the order
       val rdd: RDD[Sku] = SuggestionsEngine.parseSku(ds)
       // take one and find top matches
       val sku: Sku = rdd.take(1)(0)
       //calculate the difference
       val rddDifferences: RDD[SkuDifferences] = SuggestionsEngine.createDifferencesRDD(sku, rdd)
-      log.info(s"${rddDifferences.take(10)}")
+      rddDifferences.count() should ===(rdd.count())
       //grab best skus
       val recommendations: Array[SkuDifferences] = SuggestionsEngine.getBestRecommendations(sku, rdd, 15)
+      recommendations should have length 15
+      // the pivot sku is its own closest match (zero difference)
+      recommendations.head.sku.sku should ===(sku.sku)
+      recommendations.head.difference should ===(0)
 
-      def printInt(i: Int): String = s" $i "
-
-      log.info(s"Comparison sku ${sku.sku} attributes " +
-        s"${sku.attributes.foldLeft("") { (acc, i) => acc + s"${i.toString} " }}}")
+      log.info(s"Comparison sku ${sku.sku} attributes ${sku.attributes.mkString(" ")}")
       recommendations.foreach(s => {
         log.info(s"sku ${s.sku.sku} diff ${s.difference} breaker ${s.breaker}")
-        log.info(s"attributes ${s.sku.attributes.foldLeft("") { (acc, i) => acc + s"${i.toString} " }}")
+        log.info(s"attributes ${s.sku.attributes.mkString(" ")}")
       })
     }
   }
