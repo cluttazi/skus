@@ -45,7 +45,7 @@ class SuggestionsEngine extends Serializable with SuggestionsEngineT {
   override def compare(sku1: Sku, sku2: Sku): SkuDifferences = {
     if (sku1.attributes.length >= sku2.attributes.length) {
       val diff: Array[Int] = calculateDifference(sku1.attributes, sku2.attributes)
-      var coef: BigInt = Math.pow(100, sku1.attributes.length).toInt
+      var coef: BigInt = BigInt(100).pow(sku1.attributes.length)
       var breaker: BigInt = 0
       for (n <- diff) {
         breaker += coef * n
@@ -58,7 +58,7 @@ class SuggestionsEngine extends Serializable with SuggestionsEngineT {
 
   override def parseSku(ds: DataFrame): RDD[Sku] =
     ds.rdd.map(row =>
-      Sku(row(1).toString, convertToArray(row(0).toString)))
+      Sku(row.getAs[String]("sku"), convertToArray(row.getAs[String]("attributes"))))
 
   override def createDifferencesRDD(sku: Sku, rdd: RDD[Sku]): RDD[SkuDifferences] =
     rdd

@@ -46,6 +46,24 @@ class SuggestionsEngineSpec extends AnyWordSpec with Matchers {
       c45.breaker should be < c46.breaker
     }
 
+    "weigh differences in trailing attributes of wide skus (regression: breaker coefficient overflow)" in {
+      // With 10 attributes the initial coefficient is 100^10, which overflowed
+      // Int and zeroed the weights of every attribute after the fifth, so
+      // differences in trailing attributes were invisible to the tie-breaker.
+      val pivot = Sku("pivot", Array.fill(10)(0))
+      val diffAtLast = Sku("last", Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 2))
+      val diffAtNinth = Sku("ninth", Array(0, 0, 0, 0, 0, 0, 0, 0, 2, 0))
+
+      val cLast: SkuDifferences = SuggestionsEngine.compare(pivot, diffAtLast)
+      val cNinth: SkuDifferences = SuggestionsEngine.compare(pivot, diffAtNinth)
+
+      cLast.difference should ===(cNinth.difference)
+      // weights are 100^(n-i): position 9 -> 2 * 100^1, position 8 -> 2 * 100^2
+      cLast.breaker should ===(BigInt(200))
+      cNinth.breaker should ===(BigInt(20000))
+      cLast.breaker should be < cNinth.breaker
+    }
+
     "be able to create suggestions" in {
 
       val path: String = this.getClass.getResource("/input.json").getPath
