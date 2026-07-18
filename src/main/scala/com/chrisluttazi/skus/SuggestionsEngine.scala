@@ -8,12 +8,12 @@ import scala.util.Try
 
 class SuggestionsEngine extends Serializable with SuggestionsEngineT {
 
-  /**
-   * Creates a features array, this will fail in case the string is not formatted as in the file
-   *
-   * @param row : a row, for example: [att-a-7,att-b-3,att-c-10,att-d-10,att-e-15,att-f-11,att-g-2,att-h-7,att-i-5,att-j-14]
-   * @return
-   */
+  /** Creates a features array, this will fail in case the string is not formatted as in the file
+    *
+    * @param row
+    *   : a row, for example: [att-a-7,att-b-3,att-c-10,att-d-10,att-e-15,att-f-11,att-g-2,att-h-7,att-i-5,att-j-14]
+    * @return
+    */
   private def convertToArray(row: String): Array[Int] = {
     val rowArray: Array[String] = row.split(",")
     val array: Array[Int] = new Array[Int](rowArray.length)
@@ -26,13 +26,14 @@ class SuggestionsEngine extends Serializable with SuggestionsEngineT {
     array
   }
 
-  /**
-   * Calculates the absolute difference between two arrays
-   *
-   * @param s1 : An attributes array
-   * @param s2 : An attributes array
-   * @return
-   */
+  /** Calculates the absolute difference between two arrays
+    *
+    * @param s1
+    *   : An attributes array
+    * @param s2
+    *   : An attributes array
+    * @return
+    */
   private def calculateDifference(s1: Array[Int], s2: Array[Int]): Array[Int] = {
     if (s1.length >= s2.length) {
       val length: Int = s1.length
@@ -57,8 +58,7 @@ class SuggestionsEngine extends Serializable with SuggestionsEngineT {
   }
 
   override def parseSku(ds: DataFrame): RDD[Sku] =
-    ds.rdd.map(row =>
-      Sku(row.getAs[String]("sku"), convertToArray(row.getAs[String]("attributes"))))
+    ds.rdd.map(row => Sku(row.getAs[String]("sku"), convertToArray(row.getAs[String]("attributes"))))
 
   override def createDifferencesRDD(sku: Sku, rdd: RDD[Sku]): RDD[SkuDifferences] =
     rdd

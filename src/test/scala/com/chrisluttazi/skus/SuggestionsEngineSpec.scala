@@ -13,18 +13,12 @@ class SuggestionsEngineSpec extends AnyWordSpec with Matchers {
 
   "SuggestionsEngine" should {
 
-    /**
-     * Example 1:
-     * {"sku":"sku-1","attributes": {"att-a": "a1", "att-b": "b1", "att-c": "c1"}} is more similar to
-     * {"sku":"sku-2","attributes": {"att-a": "a2", "att-b": "b1", "att-c": "c1"}} than to
-     * {"sku":"sku-3","attributes": {"att-a": "a1", "att-b": "b3", "att-c": "c3"}}
-     * *
-     * Example 2:
-     * {"sku":"sku-1","attributes":{"att-a": "a1", "att-b": "b1"}} is more similar to
-     * {"sku":"sku-2","attributes":{"att-a": "a1", "att-b": "b2"}} than to
-     * {"sku":"sku-3","attributes":{"att-a": "a2", "att-b": "b1"}}
-     *
-     */
+    /** Example 1: {"sku":"sku-1","attributes": {"att-a": "a1", "att-b": "b1", "att-c": "c1"}} is more similar to
+      * {"sku":"sku-2","attributes": {"att-a": "a2", "att-b": "b1", "att-c": "c1"}} than to {"sku":"sku-3","attributes":
+      * {"att-a": "a1", "att-b": "b3", "att-c": "c3"}} * Example 2: {"sku":"sku-1","attributes":{"att-a": "a1", "att-b":
+      * "b1"}} is more similar to {"sku":"sku-2","attributes":{"att-a": "a1", "att-b": "b2"}} than to
+      * {"sku":"sku-3","attributes":{"att-a": "a2", "att-b": "b1"}}
+      */
 
     val sku1 = Sku("sku-1", Array(1, 1, 1))
     val sku2 = Sku("sku-2", Array(2, 1, 1))
@@ -70,14 +64,14 @@ class SuggestionsEngineSpec extends AnyWordSpec with Matchers {
 
       val ds: DataFrame = Spark.session.read.json(path)
 
-      //aggregate the order
+      // aggregate the order
       val rdd: RDD[Sku] = SuggestionsEngine.parseSku(ds)
       // take one and find top matches
       val sku: Sku = rdd.take(1)(0)
-      //calculate the difference
+      // calculate the difference
       val rddDifferences: RDD[SkuDifferences] = SuggestionsEngine.createDifferencesRDD(sku, rdd)
       rddDifferences.count() should ===(rdd.count())
-      //grab best skus
+      // grab best skus
       val recommendations: Array[SkuDifferences] = SuggestionsEngine.getBestRecommendations(sku, rdd, 15)
       recommendations should have length 15
       // the pivot sku is its own closest match (zero difference)
