@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/cluttazi/skus/actions/workflows/ci.yml/badge.svg)](https://github.com/cluttazi/skus/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Scala](https://img.shields.io/badge/Scala-2.11-red.svg)](https://www.scala-lang.org/)
-[![Spark](https://img.shields.io/badge/Apache%20Spark-2.3-e25a1c.svg)](https://spark.apache.org/)
+[![Scala](https://img.shields.io/badge/Scala-2.13-red.svg)](https://www.scala-lang.org/)
+[![Spark](https://img.shields.io/badge/Apache%20Spark-4.1-e25a1c.svg)](https://spark.apache.org/)
 
 A product-similarity engine built on Apache Spark: given a catalogue of SKUs described by attribute vectors, it recommends the most similar products for any given SKU.
 
@@ -20,16 +20,16 @@ Example: `sku-1 [1,1,1]` is more similar to `sku-2 [2,1,1]` than to `sku-3 [1,3,
 
 ## Tech Stack
 
-- Scala 2.11.8
-- Apache Spark 2.3.0 (Core, SQL, Hive)
-- ScalaTest 3.0
-- sbt
+- Scala 2.13.18
+- Apache Spark 4.1.3 (Core, SQL)
+- ScalaTest 3.2
+- sbt 1.11 (with scalafmt for formatting)
 
 ## Getting Started
 
 ### Prerequisites
 
-- JDK 8
+- JDK 21 (any 17+ works; the build passes the required `--add-opens` flags to the forked test JVM)
 - [sbt](https://www.scala-sbt.org/) (any recent version; the correct sbt version is picked up from `project/build.properties`)
 
 ### Run the Test Suite
@@ -65,7 +65,7 @@ src
 
 ## Continuous Integration
 
-Every push and pull request runs `sbt test` on JDK 8 via [GitHub Actions](.github/workflows/ci.yml).
+Every push and pull request runs `sbt scalafmtCheckAll scalafmtSbtCheck` and `sbt test` on Temurin JDK 21 via [GitHub Actions](.github/workflows/ci.yml).
 
 ## License
 

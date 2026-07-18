@@ -50,18 +50,86 @@ Audit date: 2026-07-18. Branch: `claude/repo-modernization-audit-6se2sn`.
 ## Prioritized checklist
 
 - [x] P0 Commit this audit plan.
-- [ ] P1 Toolchain: sbt → 1.11.7 (`project/build.properties`), Scala → 2.13.18,
+- [x] P1 Toolchain: sbt → 1.11.7 (`project/build.properties`), Scala → 2.13.18,
       Spark → 4.1.3, ScalaTest → 3.2.20; drop spark-hive; migrate test to
       `AnyWordSpec`; add fork + `--add-opens` for tests; verify `sbt test`
       green locally on Java 21.
-- [ ] P2 Fix breaker-overflow bug + regression test.
-- [ ] P3 `parseSku` by column name (+ keep behavior identical on fixture).
-- [ ] P4 Replace scalariform/revolver plugins with scalafmt; add
+- [x] P2 Fix breaker-overflow bug + regression test.
+- [x] P3 `parseSku` by column name (+ keep behavior identical on fixture).
+- [x] P4 Replace scalariform/revolver plugins with scalafmt; add
       `.scalafmt.conf`; format; wire `scalafmtCheckAll` into CI.
-- [ ] P5 CI: JDK 8 → Temurin 21, keep checkout@v4/setup-java@v4/setup-sbt@v1,
+- [x] P5 CI: JDK 8 → Temurin 21, keep checkout@v4/setup-java@v4/setup-sbt@v1,
       sbt cache; mirror locally-verified commands.
-- [ ] P6 README/.gitignore updated to reality; final "Done vs Deferred" here.
+- [x] P6 README updated to reality (`.gitignore` was already accurate); final
+      "Done vs Deferred" below.
 
 ## Done vs Deferred
 
-(To be filled in at the end of the modernization pass.)
+### Done
+
+- **Toolchain**: sbt 0.13.16 → **1.11.7**, Scala 2.11.8 → **2.13.18**,
+  Spark 2.3.0 → **4.1.3**, ScalaTest 3.0.1 → **3.2.20**, all verified on
+  Temurin **21** (the CI JDK). Test JVM is forked with the standard
+  `--add-opens` set Spark needs on JDK 17+.
+- **Dependencies removed**: `spark-hive` (unused), sbt plugins
+  `sbt-scalariform` 1.6.0 (project dead, sbt 0.13-only) and `sbt-revolver`
+  0.9.1 (no runnable app to `re-start`).
+- **Bug fixed** (with regression test): `Math.pow(100, n).toInt` overflow in
+  `SuggestionsEngine.compare` zeroed tie-breaker weights for every attribute
+  after the fifth; now `BigInt(100).pow(n)`.
+- **Robustness**: `parseSku` reads DataFrame columns by name instead of
+  relying on alphabetical JSON column ordering.
+- **Tests strengthened**: the end-to-end suggestions test previously asserted
+  nothing (log-only); it now checks cardinality, top-N size, and that the
+  pivot SKU is its own zero-difference best match. Suite: 2 → 3 tests.
+- **Formatting**: scalafmt 3.9.8 via sbt-scalafmt 2.5.6, config in
+  `.scalafmt.conf` (mirrors the old scalariform style where cheap, e.g.
+  spaces in import braces); `scalafmtCheckAll scalafmtSbtCheck` enforced
+  in CI.
+- **CI**: JDK 8 → Temurin 21 on `ubuntu-latest`; kept `actions/checkout@v4`,
+  `actions/setup-java@v4` (+ sbt cache), `sbt/setup-sbt@v1`; added the
+  format check. CI steps are exactly the commands verified locally.
+- **Security**: leaving the Spark 2.3/Scala 2.11 line resolves the known
+  Spark 2.x advisories (CVE-2018-17190, CVE-2019-10099, CVE-2020-9480, …)
+  and sheds the EOL transitive stack (log4j 1.x, old Jackson/Guava/Netty,
+  and the entire Hive 1.2 tree that spark-hive dragged in).
+
+### Deferred (deliberately untouched)
+
+- **Spark 4.2.0**: stable but released 2026-07-11 (one week before this
+  work). The bump is a one-line `sparkVersion` change once it has soaked.
+- **Scala 3 migration**: Spark's Scala artifacts remain 2.13-only; nothing
+  to do until upstream cross-publishes.
+- **Public API and algorithm semantics**: `SuggestionsEngineT`, `Sku`,
+  `SkuDifferences`, comparison/breaker semantics (beyond the overflow fix),
+  and the `att-<letter>-<int>` input format are unchanged on purpose.
+- **`convertToArray` leniency**: malformed attribute tokens are silently
+  skipped (left at 0). That is current documented-by-test behavior; making
+  it strict would change results on dirty data, so it stays.
+- The `master` branch name, MIT license, and repository layout.
+
+## Final summary (PR-description style)
+
+Modernizes the repo from a 2018-era stack (Scala 2.11 / Spark 2.3 /
+sbt 0.13 / JDK 8) that can no longer even bootstrap (sbt 0.13 artifacts are
+unresolvable; JDK 8 unavailable here) to the current LTS stack, in five
+commits:
+
+1. `docs:` this audit plan.
+2. `build:` toolchain migration (sbt 1.11.7, Scala 2.13.18, Spark 4.1.3,
+   ScalaTest 3.2.20, JDK 21 test-JVM flags, dead plugins replaced by
+   scalafmt, spark-hive dropped, spec migrated to ScalaTest 3.2 APIs).
+3. `fix:` breaker-coefficient Int overflow (+ regression test) and
+   name-based DataFrame column access in `parseSku`.
+4. `style:` scalafmt applied to all Scala sources.
+5. `ci:`/`docs:` workflow on Temurin 21 with format gate; README matches
+   reality.
+
+**Risk areas**: Spark 2.3 → 4.1 is a two-major jump; the engine only uses
+`SparkSession.read.json`, `DataFrame.rdd`, and core RDD ops (`map`,
+`sortBy`, `take`), all stable across the jump, and the full pipeline runs
+green against the bundled 20-SKU fixture. The breaker fix intentionally
+changes recommendation *ordering* for datasets with ≥ 5 attributes where
+ties were previously broken wrongly (trailing attributes ignored) — that is
+the bug being fixed. Local verification: `sbt scalafmtCheckAll
+scalafmtSbtCheck test` → 3/3 tests pass on Temurin 21.0.10 / sbt 1.11.7.
